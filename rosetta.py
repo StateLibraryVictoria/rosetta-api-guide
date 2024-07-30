@@ -4,7 +4,7 @@ import xml.dom.minidom
 
 import os
 
-default_institution_code = "INS002"
+default_institution_code = "TRN"
 
 
 def get_rosetta_data(
@@ -31,21 +31,40 @@ def get_rosetta_data(
     return response.content
 
 
+def post_rosetta_data(
+    endpoint: str, institution_code=default_institution_code, data={}
+):
+
+    user = os.environ.get("ROSETTA_USER")
+    password = os.environ.get("ROSETTA_PASSWORD")
+
+    rest_url = f"https://rostestapp1.slv.vic.gov.au:8443/rest/v0/{endpoint}"
+
+    response = requests.post(
+        rest_url,
+        auth=(f"{user}-institutionCode-{institution_code}", password),
+        params=data,
+    )
+
+    if response.status_code != 200:
+        print(
+            f"Couldn't retrieve data from Rosetta. Here's the status code returned {response.status_code}"
+        )
+        return False
+
+    return response.content
+
+
 def get_sips(
     institution_code=default_institution_code,
     stage="Deposit,Loading,Validation,Assessor,Arranger,Approver,Bytestream,Enrichment,ToPermanent,Finished,SystemErrors",
-    status="ALL",
-    # status="REJECTED, DECLINED, INPROCESS, FINISHED, DELETED, ERROR, IN_HUMAN_STAGE",
-    offset=0,
-    limit=100,
+    status="REJECTED, DECLINED, INPROCESS, FINISHED, DELETED, ERROR, IN_HUMAN_STAGE",
     expand="iePids,numberOfIEs",
 ):
 
     payload = {
-        "limit": limit,
         "stage": stage,
         "status": status,
-        "offset": offset,
         "expand": expand,
     }
 
@@ -93,12 +112,29 @@ def parse_sip_xml(tree: ET.Element) -> list:
     return parsed_sips
 
 
-limit = 100
-sips = get_sips(limit=limit)
+# sips = get_sips()
 
-tree = ET.fromstring(sips)
+# tree = ET.fromstring(sips)
 
-parsed_tree = parse_sip_xml(tree)
-print(parsed_tree)
-record_count = int(tree.attrib.get("total_record_count"))
-print(record_count)
+# parsed_tree = parse_sip_xml(tree)
+# print(parsed_tree)
+# record_count = int(tree.attrib.get("total_record_count"))
+# print(record_count)
+
+
+def export_ie(ie_pid: str):
+
+    data = {"op": "export", "export_path": f"{ie_pid}_export"}
+
+    ie_pid_endpoint = f"ies/{ie_pid}"
+
+    data = post_rosetta_data(ie_pid_endpoint, data=data)
+
+    print(data)
+
+    return data
+
+
+example_ie_pid = "IE228302"
+
+export_ie(example_ie_pid)
