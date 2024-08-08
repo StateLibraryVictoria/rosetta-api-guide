@@ -1,3 +1,4 @@
+import pandas as pd
 import requests
 from xml.etree import ElementTree as ET
 import xml.dom.minidom
@@ -130,11 +131,65 @@ def export_ie(ie_pid: str):
 
     data = post_rosetta_data(ie_pid_endpoint, data=data)
 
-    print(data)
-
     return data
 
 
-example_ie_pid = "IE228302"
+# example_ie_pid = "IE228302"
+# export_ie(example_ie_pid)
 
-export_ie(example_ie_pid)
+
+def parse_xml(tree: ET.Element, xml_field_names: list) -> pd.DataFrame:
+
+    parsed_xml = {
+        field: [
+            node.find(field).text if node.find(field) != None else "N/A"
+            for node in tree
+        ]
+        for field in xml_field_names
+    }
+
+    df = pd.DataFrame(parsed_xml, columns=xml_field_names)
+
+    return df
+
+
+def get_users(limit=100):
+
+    payload = {"limit": limit, "expand": "roles"}
+
+    users = get_rosetta_data("users", payload=payload)
+    print(users)
+
+    tree = ET.fromstring(users)
+
+    parsed_users = parse_xml(
+        tree,
+        [
+            "id",
+            "user_name",
+            "record_type",
+            "active",
+            "job_title",
+            "account_type",
+            "shared",
+        ],
+    )
+
+    return parsed_users
+
+
+def get_user_roles(user_id: str):
+
+    roles = get_rosetta_data(f"users/{user_id}/roles")
+
+    tree = ET.fromstring(roles)
+
+    role_description = [node.find("description").text for node in tree]
+
+    return role_description
+
+
+# users = get_users()
+# users["roles"] = users["id"].apply(lambda x: get_user_roles(x))
+# print(users)
+# users.to_csv("rosetta-users.csv")
